@@ -30,3 +30,8 @@
 
 # Debug files
 *.dSYM/
+
+#Particular OpenSees files
+version.txt*
+all_interfaces_2d.mod
+all_interfaces_3d.mod
