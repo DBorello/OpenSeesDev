@@ -19,7 +19,7 @@
 ** ****************************************************************** */
                                                                         
 // $Revision: 1.9 $
-// $Date: 2007-02-02 01:18:42 $
+// $Date: 2007/02/02 01:18:42 $
 // $Source: /usr/local/cvs/OpenSees/SRC/material/section/fiber/UniaxialFiber3d.cpp,v $
                                                                         
                                                                         
@@ -57,7 +57,7 @@ ID UniaxialFiber3d::code(3);
 // constructor:
 UniaxialFiber3d::UniaxialFiber3d()
 :Fiber(0, FIBER_TAG_Uniaxial3d),
- theMaterial(0), area(0.0)
+ theMaterial(0), area(0.0), dValue(0)
 {
 	if (code(0) != SECTION_RESPONSE_P) {
 		code(0) = SECTION_RESPONSE_P;
@@ -71,9 +71,9 @@ UniaxialFiber3d::UniaxialFiber3d()
 
 UniaxialFiber3d::UniaxialFiber3d(int tag, 
                                  UniaxialMaterial &theMat,
-                                 double Area, const Vector &position)
+                                 double Area, const Vector &position, double dvalue)
 :Fiber(tag, FIBER_TAG_Uniaxial3d),
- theMaterial(0), area(Area)
+ theMaterial(0), area(Area), dValue(dvalue)
 {
 	theMaterial = theMat.getCopy();  // get a copy of the MaterialModel
 
@@ -170,7 +170,7 @@ UniaxialFiber3d::getCopy (void)
 
    UniaxialFiber3d *theCopy = new UniaxialFiber3d (this->getTag(), 
                                                    *theMaterial, area, 
-                                                   position);
+                                                   position, dValue);
    return theCopy;
 }  
 

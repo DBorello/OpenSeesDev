@@ -90,6 +90,8 @@ TclModelBuilder_addForceBeamColumn(ClientData clientData, Tcl_Interp *interp,
     ok = 1;
   if (ndm == 3 && ndf == 6)
     ok = 1;
+  if (ndm == 3 && ndf == 7)
+    ok = 1;
   
   if (ok == 0) {
     opserr << "WARNING -- NDM = " << ndm << " and NDF = " << ndf

@@ -39,8 +39,14 @@
 #include <Matrix.h>
 #include <Node.h>
 #include <Channel.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <stdlib.h>
 
 #include <CorotCrdTransf3d.h>
+using std::string;
+using namespace std;
 
 // initialize static variables
 Matrix CorotCrdTransf3d::RI(3,3); 
@@ -49,9 +55,9 @@ Matrix CorotCrdTransf3d::Rbar(3,3);
 Matrix CorotCrdTransf3d::e(3,3); 
 Matrix CorotCrdTransf3d::Tp(6,7); 
 Matrix CorotCrdTransf3d::A(3,3);
-Matrix CorotCrdTransf3d::Lr2(12,3);
-Matrix CorotCrdTransf3d::Lr3(12,3);
-Matrix CorotCrdTransf3d::T(7,12);
+Matrix CorotCrdTransf3d::Lr2(14,3); // chagne dimension of the matrix to suit for warping degrees
+Matrix CorotCrdTransf3d::Lr3(14,3);  // chagne dimension of the matrix to suit for warping degrees
+Matrix CorotCrdTransf3d::T(9,14);   // chagne dimension of the matrix to suit for warping degrees
 
 
 // constructor:
@@ -63,7 +69,7 @@ vAxis(3), nodeIOffset(3), nodeJOffset(3), xAxis(3),
 nodeIPtr(0), nodeJPtr(0), R0(3,3), L(0), Ln(0), 
 alphaIq(4), alphaJq(4), 
 alphaIqcommit(4), alphaJqcommit(4), alphaI(3), alphaJ(3),
-ulcommit(7), ul(7),  ulpr(7),
+ulcommit(9), ul(9),  ulpr(9),
 nodeIInitialDisp(0), nodeJInitialDisp(0), initialDispChecked(false)
 {
     // check vector that defines local xz plane
@@ -145,7 +151,7 @@ vAxis(3), nodeIOffset(3), nodeJOffset(3), xAxis(3),
 nodeIPtr(0), nodeJPtr(0), R0(3,3), L(0), Ln(0), 
 alphaIq(4), alphaJq(4), 
 alphaIqcommit(4), alphaJqcommit(4), alphaI(3), alphaJ(3),
-ulcommit(7), ul(7),  ulpr(7),
+ulcommit(9), ul(9),  ulpr(9),
 nodeIInitialDisp(0), nodeJInitialDisp(0), initialDispChecked(false)
 {
     // Permutation matrix (to renumber basic dof's)
@@ -263,20 +269,20 @@ CorotCrdTransf3d::initialize(Node *nodeIPointer, Node *nodeJPointer)
     if (initialDispChecked == false) {
         const Vector &nodeIDisp = nodeIPtr->getDisp();
         const Vector &nodeJDisp = nodeJPtr->getDisp();
-        for (int i=0; i<6; i++)
+        for (int i=0; i<7; i++)
             if (nodeIDisp(i) != 0.0) {
-                nodeIInitialDisp = new double [6];
-                for (int j=0; j<6; j++)
+                nodeIInitialDisp = new double [7];
+                for (int j=0; j<7; j++)
                     nodeIInitialDisp[j] = nodeIDisp(j);
-                i = 6;
+                i = 7;
             }
             
-            for (int j=0; j<6; j++)
+            for (int j=0; j<7; j++)
                 if (nodeJDisp(j) != 0.0) {
-                    nodeJInitialDisp = new double [6];
-                    for (int i=0; i<6; i++)
+                    nodeJInitialDisp = new double [7];
+                    for (int i=0; i<7; i++)
                         nodeJInitialDisp[i] = nodeJDisp(i);
-                    j = 6;
+                    j = 7;
                 }
                 initialDispChecked = true;
     }
@@ -333,18 +339,18 @@ CorotCrdTransf3d::update(void)
     **************************************************************/
     
     // determine global displacement increments from last iteration
-    static Vector dispI(6);
-    static Vector dispJ(6);
+    static Vector dispI(7);
+    static Vector dispJ(7);
     dispI = nodeIPtr->getTrialDisp();
     dispJ = nodeJPtr->getTrialDisp();
     
     if (nodeIInitialDisp != 0) {
-        for (int j=0; j<6; j++)
+        for (int j=0; j<7; j++)
             dispI(j) -= nodeIInitialDisp[j];
     }
     
     if (nodeJInitialDisp != 0) {
-        for (int j=0; j<6; j++)
+        for (int j=0; j<7; j++)
             dispJ(j) -= nodeJInitialDisp[j];
     }
     
@@ -499,15 +505,15 @@ CorotCrdTransf3d::update(void)
             ul(0) = asin (((rI2^ e3) - (rI3^ e2))*0.5);
             ul(1) = asin (((rI1^ e2) - (rI2^ e1))*0.5);
             ul(2) = asin (((rI1^ e3) - (rI3^ e1))*0.5);
-            ul(3) = asin (((rJ2^ e3) - (rJ3^ e2))*0.5);
-            ul(4) = asin (((rJ1^ e2) - (rJ2^ e1))*0.5);
-            ul(5) = asin (((rJ1^ e3) - (rJ3^ e1))*0.5);		   
-            
+			ul(3) = dispI(6); // warping degree of freedom is constant during transformation
+            ul(4) = asin (((rJ2^ e3) - (rJ3^ e2))*0.5);
+            ul(5) = asin (((rJ1^ e2) - (rJ2^ e1))*0.5);
+            ul(6) = asin (((rJ1^ e3) - (rJ3^ e1))*0.5);		   
+            ul(7) = dispJ(6);
             // ul = Ln - L;
             // ul(6) = 2 * ((xJI + dJI/2)^ dJI) / (Ln + L);  //mid-point formula   
             xJI.addVector(1.0, dJI, 0.5);
-            ul(6) = 2 * (xJI ^ dJI) / (Ln + L);  //mid-point formula   
-            
+            ul(8) = 2 * (xJI ^ dJI) / (Ln + L);  //mid-point formula   
             // compute the transformation matrix
             this->compTransfMatrixBasicGlobal();
             
@@ -597,7 +603,7 @@ CorotCrdTransf3d::compTransfMatrixBasicGlobal(void)
         {
             T(1,i  ) =  At(i);  
             T(1,i+3) =  Se(i);
-            T(1,i+6) = -At(i);
+            T(1,i+7) = -At(i);
         }
         
         //   T3 = [(A*rI3)', (-S(rI3)*e1 + S(rI1)*e3)', -(A*rI3)', O']';
@@ -611,7 +617,7 @@ CorotCrdTransf3d::compTransfMatrixBasicGlobal(void)
         {
             T(2,i  ) =  At(i);  
             T(2,i+3) =  Se(i);
-            T(2,i+6) = -At(i);
+            T(2,i+7) = -At(i);
         }
         
         Sr1 = this->getSkewSymMatrix(rJ1);
@@ -624,7 +630,7 @@ CorotCrdTransf3d::compTransfMatrixBasicGlobal(void)
         Se.addMatrixVector(1.0, Sr2, e3,  1.0);    
         
         for (i = 0; i < 3; i++)
-            T(3,i+9) =  Se(i);
+            T(4,i+10) =  Se(i);
         
         //   T5 = [(A*rJ2)', O', -(A*rJ2)', (-S(rJ2)*e1 + S(rJ1)*e2)']';
         
@@ -635,9 +641,9 @@ CorotCrdTransf3d::compTransfMatrixBasicGlobal(void)
         
         for (i = 0; i < 3; i++)
         {
-            T(4,i  ) =  At(i);  
-            T(4,i+6) = -At(i);
-            T(4,i+9) =  Se(i);
+            T(5,i  ) =  At(i);  
+            T(5,i+7) = -At(i);
+            T(5,i+10) =  Se(i);
         }
         
         //   T6 = [(A*rJ3)', O', -(A*rJ3)', (-S(rJ3)*e1 + S(rJ1)*e3)']';
@@ -649,13 +655,13 @@ CorotCrdTransf3d::compTransfMatrixBasicGlobal(void)
         
         for (i = 0; i < 3; i++)
         {
-            T(5,i  ) =  At(i);  
-            T(5,i+6) = -At(i);
-            T(5,i+9) =  Se(i);
+            T(6,i  ) =  At(i);  
+            T(6,i+7) = -At(i);
+            T(6,i+10) =  Se(i);
         }
         
         // setup tranformation matrix
-        static Vector Lr(12);
+        static Vector Lr(14);
         
         // T(:,1) += Lr3*rI2 - Lr2*rI3;
         // T(:,2) +=           Lr2*rI1;
@@ -668,49 +674,58 @@ CorotCrdTransf3d::compTransfMatrixBasicGlobal(void)
         Lr.addMatrixVector(0.0, Lr3, rI2,  1.0);  //  T(:,1) += Lr3*rI2 - Lr2*rI3 
         Lr.addMatrixVector(1.0, Lr2, rI3, -1.0);
         
-        for (i = 0; i < 12; i++)
+        for (i = 0; i < 14; i++)
             T(0,i) += Lr(i);
         
         Lr.addMatrixVector(0.0, Lr2, rI1,  1.0);  //  T(:,2) +=           Lr2*rI1
         
-        for (i = 0; i < 12; i++)
+        for (i = 0; i < 14; i++)
             T(1,i) += Lr(i);
         
         Lr.addMatrixVector(0.0, Lr3, rI1,  1.0);  //  T(:,3) += Lr3*rI1 
         
-        for (i = 0; i < 12; i++)
+        for (i = 0; i < 14; i++)
             T(2,i) += Lr(i);
         
         Lr.addMatrixVector(0.0, Lr3, rJ2,  1.0);  //  T(:,4) += Lr3*rJ2 - Lr2*rJ3;
         Lr.addMatrixVector(1.0, Lr2, rJ3, -1.0);
         
-        for (i = 0; i < 12; i++)
-            T(3,i) += Lr(i);
+        T(3,6) = 1.0;
+        for (i = 0; i < 14; i++)
+            T(4,i) += Lr(i);
         
         Lr.addMatrixVector(0.0, Lr2, rJ1,  1.0);  //  T(:,5) += Lr2*rJ1   
         
-        for (i = 0; i < 12; i++)
-            T(4,i) += Lr(i);
+        for (i = 0; i < 14; i++)
+            T(5,i) += Lr(i);
         
         Lr.addMatrixVector(0.0, Lr3, rJ1,  1.0);  //   T(:,6) += Lr3*rJ1
         
-        for (i = 0; i < 12; i++)
-            T(5,i) += Lr(i);
+        for (i = 0; i < 14; i++)
+            T(6,i) += Lr(i);
+		T(7,13) = 1.0;
         
         double c;
-        for (j = 0; j < 6; j++)
+        for (j = 0; j < 3; j++)
         {
             c = 2 * cos(ul(j));
             
-            for (i = 0; i < 12; i++) 
+            for (i = 0; i < 14; i++) 
                 T(j,i) /= c;
         }
         
-        // T(:,7) = [-e1' O' e1' O']';
+          for (j = 4; j < 7; j++)
+        {
+            c = 2 * cos(ul(j));
+            
+            for (i = 0; i < 14; i++) 
+                T(j,i) /= c;
+        }
+        // T(:,9) = [-e1' O' e1' O']';
         for (i = 0; i < 3; i++)
         {
-            T(6,i  ) = -e1(i);
-            T(6,i+6) =  e1(i);
+            T(8,i  ) = -e1(i);
+            T(8,i+7) =  e1(i);
         }      
 }
 
@@ -966,11 +981,9 @@ CorotCrdTransf3d::compTransfMatrixBasicGlobalNew(void)
 const Vector &
 CorotCrdTransf3d::getBasicTrialDisp (void)
 {
-    static Vector ub(6);
-    
-    // use transformation matrix to renumber the degrees of freedom
-    ub.addMatrixVector(0.0, Tp, ul, 1.0);
-    
+    static Vector ub(9);
+    //basic system equals to local system
+    ub=ul;
     return ub;    
 }
 
@@ -978,15 +991,14 @@ CorotCrdTransf3d::getBasicTrialDisp (void)
 const Vector &
 CorotCrdTransf3d::getBasicIncrDeltaDisp (void)
 {
-    static Vector dub(6);
-    static Vector dul(7);
+    static Vector dub(9);
+    static Vector dul(9);
     
     // dul = ul - ulpr;
     dul = ul;
     dul.addVector (1.0, ulpr, -1.0);
     
-    // use transformation matrix to renumber the degrees of freedom
-    dub.addMatrixVector(0.0, Tp, dul, 1.0);
+    dub=dul;
     
     return dub;        
 }
@@ -995,16 +1007,14 @@ CorotCrdTransf3d::getBasicIncrDeltaDisp (void)
 const Vector &
 CorotCrdTransf3d::getBasicIncrDisp(void)
 {
-    static Vector Dub(6);
-    static Vector Dul(7);
+    static Vector Dub(9);
+    static Vector Dul(9);
     
     // Dul = ul - ulcommit;
     Dul = ul;
     Dul.addVector (1.0, ulcommit, -1.0);
     
-    // use transformation matrix to renumber the degrees of freedom
-    Dub.addMatrixVector(0.0, Tp, Dul, 1.0);
-    
+    Dub=Dul;
     return Dub;        
 }
 
@@ -1035,26 +1045,15 @@ const Vector &
 CorotCrdTransf3d::getGlobalResistingForce(const Vector &pb, const Vector &unifLoad)
 {
     this->update();
-    
-    //   opserr << "basic forces: " << pb;  
-    // transform resisting forces from the basic system to local coordinates
-    static Vector pl(7);
-    pl.addMatrixTransposeVector(0.0, Tp, pb, 1.0);    // pl = Tp ^ pb;
-    //opserr << "pl: " << pl;
+    static Vector pl(9);
+	// do not transform, basic equals to local
+	pl=pb;
     
     // check distributed load is zero (not implemented yet)
     
     // transform resisting forces  from local to global coordinates
-    static Vector pg(12);
-    pg.addMatrixTransposeVector(0.0, T, pl, 1.0);   // pg = T ^ pl; residual
-    //opserr << "pg: " << pg;
-    
-    
-    /*
-    this->compTransfMatrixBasicGlobalNew();
-    opserr << T;
-    opserr << "global forces( " << pg;
-    */
+    static Vector pg(14);
+    pg.addMatrixTransposeVector(0.0, T, pl, 1.0);   // pg = T ^ pl; residua
     
     return pg;
 }
@@ -1068,23 +1067,27 @@ CorotCrdTransf3d::getGlobalStiffMatrix (const Matrix &kb, const Vector &pb)
     
     int i, j, k;   
     // transform tangent stiffness matrix from the basic system to local coordinates
-    static Matrix kl(7,7);
-    kl.addMatrixTripleProduct(0.0, Tp, kb, 1.0);      // kl = Tp ^ kb * Tp;
-    
+    static Matrix kl(9,9);
+    // do not transform, basic equals to local
+	kl=kb;
     // transform resisting forces from the basic system to local coordinates
-    static Vector pl(7);
-    pl.addMatrixTransposeVector(0.0, Tp, pb, 1.0);    // pl = Tp ^ pb;
+    static Vector pl(9);
+	pl=pb;
     
     // transform tangent  stiffness matrix from local to global coordinates
-    static Matrix kg(12,12);
-    
+    static Matrix kg(14,14);
+	kg.Zero();
+	static Matrix kgConvert(12,12);
+	kgConvert.Zero();
     // compute the tangent stiffness matrix in global coordinates
     kg.addMatrixTripleProduct(0.0, T, kl, 1.0);
     
     static Vector m(6);
-    for (i = 0; i < 6; i++)
+    for (i = 0; i < 3; i++)
         m(i) = pl(i)/(2*cos(ul(i)));
     
+    for (i = 3; i < 6; i++)
+        m(i) = pl(i+1)/(2*cos(ul(i+1)));
     // compute the basic rotations
     
     static Vector e1(3), e2(3), e3(3);
@@ -1120,6 +1123,26 @@ CorotCrdTransf3d::getGlobalStiffMatrix (const Matrix &kb, const Vector &pb)
     static Matrix Se1(3,3), Se2(3,3), Se3(3,3);
     static Matrix SrI1(3,3), SrI2(3,3), SrI3(3,3);
     static Matrix SrJ1(3,3), SrJ2(3,3), SrJ3(3,3);
+	static Matrix LLr2(12,3),LLr3(12,3);
+	LLr2.Zero();
+	LLr3.Zero();
+	for (i=0; i<6; i++)
+			{
+				for (j=0; j<3; j++)
+				{
+					LLr2(i,j)=Lr2(i,j);
+					LLr3(i,j)=Lr3(i,j);
+				}
+	}
+		for (i=6; i<12; i++)
+			{
+				for (j=0; j<3; j++)
+				{
+					LLr2(i,j)=Lr2(i+1,j);
+					LLr3(i,j)=Lr3(i+1,j);
+				}
+	}
+
     
     Se1 = this->getSkewSymMatrix(e1);
     Se2 = this->getSkewSymMatrix(e2);
@@ -1143,10 +1166,10 @@ CorotCrdTransf3d::getGlobalStiffMatrix (const Matrix &kb, const Vector &pb)
     
     double factor;
     
-    kg.Assemble(A, 0, 0,  pl(6));
-    kg.Assemble(A, 0, 6, -pl(6));
-    kg.Assemble(A, 6, 0, -pl(6));
-    kg.Assemble(A, 6, 6,  pl(6));
+    kgConvert.Assemble(A, 0, 0,  pl(8));
+    kgConvert.Assemble(A, 0, 6, -pl(8));
+    kgConvert.Assemble(A, 6, 0, -pl(8));
+    kgConvert.Assemble(A, 6, 6,  pl(8));
     
     //opserr << "kg += ksigma1: " << kg;
     
@@ -1165,30 +1188,28 @@ CorotCrdTransf3d::getGlobalStiffMatrix (const Matrix &kb, const Vector &pb)
     Sm.addMatrix(0.0, SrI3,  m(3));
     Sm.addMatrix(1.0, SrI1,  m(1));
     
-    kbar.addMatrixProduct(0.0, Lr2, Sm, -1.0);
+    kbar.addMatrixProduct(0.0, LLr2, Sm, -1.0);
     
     Sm.addMatrix(0.0, SrI2,  m(3));
     Sm.addMatrix(1.0, SrI1, -m(2));
     
-    kbar.addMatrixProduct(1.0, Lr3, Sm,  1.0);
+    kbar.addMatrixProduct(1.0, LLr3, Sm,  1.0);
     
-    kg.Assemble(kbar, 0, 3, 1.0);
-    kg.AssembleTranspose(kbar, 3, 0, 1.0);
+    kgConvert.Assemble(kbar, 0, 3, 1.0);
+    kgConvert.AssembleTranspose(kbar, 3, 0, 1.0);
     
     Sm.addMatrix(0.0, SrJ3,  m(3));
     Sm.addMatrix(1.0, SrJ1, -m(4));
     
-    kbar.addMatrixProduct(0.0, Lr2, Sm, 1.0);
+    kbar.addMatrixProduct(0.0, LLr2, Sm, 1.0);
     
     Sm.addMatrix(0.0, SrJ2, m(3));
     Sm.addMatrix(1.0, SrJ1, m(5));
     
-    kbar.addMatrixProduct(1.0, Lr3, Sm,  -1.0);
+    kbar.addMatrixProduct(1.0, LLr3, Sm,  -1.0);
+    kgConvert.Assemble(kbar, 0, 9, 1.0);
+    kgConvert.AssembleTranspose(kbar, 9, 0, 1.0);
     
-    kg.Assemble(kbar, 0, 9, 1.0);
-    kg.AssembleTranspose(kbar, 9, 0, 1.0);
-    
-    //opserr << "kg += ksigma3: " << kg;
     
     // Ksigma4 -------------------------------
     // Ks4_22 =  m(3)*( S(e2)*S(rI3) - S(e3)*S(rI2)) + ...
@@ -1215,7 +1236,7 @@ CorotCrdTransf3d::getGlobalStiffMatrix (const Matrix &kb, const Vector &pb)
     ks33.addMatrixProduct(1.0, Se3, SrI1,  m(2));
     ks33.addMatrixProduct(1.0, Se1, SrI3, -m(2));
     
-    kg.Assemble(ks33, 3, 3, 1.0);
+    kgConvert.Assemble(ks33, 3, 3, 1.0);
     
     ks33.addMatrixProduct(0.0, Se2, SrJ3, -m(3));
     ks33.addMatrixProduct(1.0, Se3, SrJ2,  m(3));
@@ -1226,7 +1247,8 @@ CorotCrdTransf3d::getGlobalStiffMatrix (const Matrix &kb, const Vector &pb)
     ks33.addMatrixProduct(1.0, Se3, SrJ1,  m(5));
     ks33.addMatrixProduct(1.0, Se1, SrJ3, -m(5));
     
-    kg.Assemble(ks33, 9, 9, 1.0);
+    kgConvert.Assemble(ks33, 9, 9, 1.0);
+
     
     //opserr << "kg += ksigma4: " << kg;
     
@@ -1267,32 +1289,33 @@ CorotCrdTransf3d::getGlobalStiffMatrix (const Matrix &kb, const Vector &pb)
             
             ks33.addMatrixProduct (1.0, m33, A, 1.0);
             
-            kg.Assemble(ks33, 0, 0,  1.0);
-            kg.Assemble(ks33, 0, 6, -1.0);
-            kg.Assemble(ks33, 6, 0, -1.0);
-            kg.Assemble(ks33, 6, 6,  1.0);
+            kgConvert.Assemble(ks33, 0, 0,  1.0);
+            kgConvert.Assemble(ks33, 0, 6, -1.0);
+            kgConvert.Assemble(ks33, 6, 0, -1.0);
+            kgConvert.Assemble(ks33, 6, 6,  1.0);
             
             //Ks5_12 = -(m(2)*A*S(rI2) + m(3)*A*S(rI3));
             
             ks33.addMatrixProduct(0.0, A, SrI2, -m(1));
             ks33.addMatrixProduct(1.0, A, SrI3, -m(2));
             
-            kg.Assemble(ks33, 0, 3,  1.0);
-            kg.Assemble(ks33, 6, 3, -1.0);
+            kgConvert.Assemble(ks33, 0, 3,  1.0);
+            kgConvert.Assemble(ks33, 6, 3, -1.0);
             
-            kg.AssembleTranspose(ks33, 3, 0,  1.0);
-            kg.AssembleTranspose(ks33, 3, 6, -1.0);
+            kgConvert.AssembleTranspose(ks33, 3, 0,  1.0);
+            kgConvert.AssembleTranspose(ks33, 3, 6, -1.0);
             
             //  Ks5_14 = -(m(5)*A*S(rJ2) + m(6)*A*S(rJ3));
             
             ks33.addMatrixProduct(0.0, A, SrJ2, -m(4));
             ks33.addMatrixProduct(1.0, A, SrJ3, -m(5));
             
-            kg.Assemble(ks33, 0, 9,  1.0);
-            kg.Assemble(ks33, 6, 9, -1.0);
+            kgConvert.Assemble(ks33, 0, 9,  1.0);
+            kgConvert.Assemble(ks33, 6, 9, -1.0);
             
-            kg.AssembleTranspose(ks33, 9, 0,  1.0);
-            kg.AssembleTranspose(ks33, 9, 6, -1.0);
+            kgConvert.AssembleTranspose(ks33, 9, 0,  1.0);
+            kgConvert.AssembleTranspose(ks33, 9, 6, -1.0);
+            
             
             //opserr << "kg += ksigma5: " << kg;
             
@@ -1301,32 +1324,91 @@ CorotCrdTransf3d::getGlobalStiffMatrix (const Matrix &kb, const Vector &pb)
             
             rm = rI3;
             rm.addVector (1.0, rJ3, -1.0); 
-            //opserr << "ks2(r2,rI3-rJ3):\n "; 
-            kg.addMatrix (1.0, this->getKs2Matrix(r2, rm), m(3));
+
+            kgConvert.addMatrix (1.0, this->getKs2Matrix(r2, rm), m(3));
             
             rm = rJ2;
             rm.addVector (1.0, rI2, -1.0); 
-            //opserr << "ks2(r3,rJ2-rI2):\n "; 
-            kg.addMatrix (1.0, this->getKs2Matrix(r3, rm), m(3));
-            //opserr << "ks2(r2,rI1):\n "; 
-            kg.addMatrix (1.0, this->getKs2Matrix(r2, rI1), m(1));
-            //opserr << "ks2(r3,rI1):\n "; 
-            kg.addMatrix (1.0, this->getKs2Matrix(r3, rI1), m(2));
-            //opserr << "ks2(r2,rJ1):\n "; 
-            kg.addMatrix (1.0, this->getKs2Matrix(r2, rJ1), m(4));
-            //opserr << "ks2(r3,rJ1):\n "; 
-            kg.addMatrix (1.0, this->getKs2Matrix(r3, rJ1), m(5));
+            kgConvert.addMatrix (1.0, this->getKs2Matrix(r3, rm), m(3));
+            kgConvert.addMatrix (1.0, this->getKs2Matrix(r2, rI1), m(1));
+            kgConvert.addMatrix (1.0, this->getKs2Matrix(r3, rI1), m(2));
+            kgConvert.addMatrix (1.0, this->getKs2Matrix(r2, rJ1), m(4));
+            kgConvert.addMatrix (1.0, this->getKs2Matrix(r3, rJ1), m(5));           
+           //  T * diag (M .* tan(thetal))*T' 
             
-            //opserr << "kg += ksigma2: " << kg;
+		   static Vector ulg(6);
+		    //ul(0),ul(1),ul(2),ul(4),ul(5),ul(6)
+		   static Vector plg(6);
+		   static Matrix Tg(7,12);
+		   //transformed from T(9,12)
+			for (i=0; i<3; i++)
+				ulg(i)=ul(i);
+			for (i=3; i<6; i++)
+				ulg(i)=ul(i+1);
+			for (i=0; i<3; i++)
+				plg(i)=pl(i);
+			for (i=3; i<6; i++)
+				plg(i)=pl(i+1);
             
-            //  T * diag (M .* tan(thetal))*T' 
+			for (i=0; i<3; i++)
+			{
+				for (j=0; j<6; j++)
+				{
+					Tg(i,j)=T(i,j);
+				}
+			}
+			for (i=0; i<3; i++)
+			{
+				for (j=6; j<12; j++)
+				{
+					Tg(i,j)=T(i,j+1);
+				}
+			}
+			for (i=3; i<6; i++)
+			{
+				for (j=0; j<6; j++)
+				{
+					Tg(i,j)=T(i+1,j);
+				}
+			}
+			for (i=3; i<6; i++)
+			{
+				for (j=6; j<12; j++)
+				{
+					Tg(i,j)=T(i+1,j+1);
+				}
+			}
+			for (j=6; j<12; j++)
+			{
+				Tg(6,j)=T(8,j);
+			}					
             
             for (k = 0; k < 6; k++)
             {
-                factor = pl(k) * tan(ul(k));
+                factor = plg(k) * tan(ulg(k));
                 for (i = 0; i < 12; i++)
                     for (j = 0; j < 12; j++)
-                        kg(i,j) += T(k,i) * factor * T(k,j);
+                        kgConvert(i,j) += Tg(k,i) * factor * Tg(k,j);
+            }
+   //       [kgConvert(6,6), 0, kgConvert(6,6), 0
+   // kg+=   o[6,6], 0, 0(6,6), 0
+   //        kgConvert(6,6), 0, kgConvert(6,6), 0
+   //	     o[6,6], 0, 0(6,6), 0]		
+			for (i=0; i<6; i++){
+				for (j=0; j<6; j++)
+					kg(i,j) += kgConvert(i,j);
+			}
+			for (i=0; i<6; i++){
+				for (j=7; j<13; j++)
+					kg(i,j) += kgConvert(i,j-1);
+			}
+			for (i=7; i<13; i++){
+				for (j=0; j<6; j++)
+					kg(i,j) += kgConvert(i-1,j);
+			}
+			for (i=7; i<13; i++){
+				for (j=7; j<13; j++)
+					kg(i,j) += kgConvert(i-1,j-1);
             }
             
             //opserr << "kg final: " << kg;
@@ -1339,11 +1421,12 @@ const Matrix &
 CorotCrdTransf3d::getInitialGlobalStiffMatrix (const Matrix &kb)
 {
     // transform tangent stiffness matrix from the basic system to local coordinates
-    static Matrix kl(7,7);
-    kl.addMatrixTripleProduct(0.0, Tp, kb, 1.0);      // kl = Tp ^ kb * Tp;
+    static Matrix kl(9,9);
+	kl=kb;
+    //kl.addMatrixTripleProduct(0.0, Tp, kb, 1.0);      // kl = Tp ^ kb * Tp;
     
     // transform tangent  stiffness matrix from local to global coordinates
-    static Matrix kg(12,12);
+    static Matrix kg(14,14);
     
     // compute the tangent stiffness matrix in global coordinates
     kg.addMatrixTripleProduct(0.0, T, kl, 1.0);
@@ -1650,7 +1733,7 @@ CorotCrdTransf3d::getLMatrix (const Vector &ri) const
     static Matrix e1e1r1(3,3);
     static Matrix Sri(3,3);
     static Matrix Sr1(3,3);
-    static Matrix L(12,3);
+    static Matrix L(14,3);
     
     int j, k;
     
@@ -1703,8 +1786,8 @@ CorotCrdTransf3d::getLMatrix (const Vector &ri) const
     L.Zero();
     L.Assemble(L1, 0, 0,  1.0);
     L.Assemble(L2, 3, 0,  1.0);
-    L.Assemble(L1, 6, 0, -1.0);
-    L.Assemble(L2, 9, 0,  1.0);
+    L.Assemble(L1, 7, 0, -1.0);
+    L.Assemble(L2, 10, 0,  1.0);
     
     //opserr << "L: " << L;
     

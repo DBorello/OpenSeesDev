@@ -52,7 +52,7 @@ class UniaxialFiber3d: public Fiber
   public:
     UniaxialFiber3d ();    
     UniaxialFiber3d (int tag, UniaxialMaterial &theMat, double Area, 
-                     const Vector &position);
+                     const Vector &position, double dvalue);
  
     ~UniaxialFiber3d();
 
@@ -78,6 +78,7 @@ class UniaxialFiber3d: public Fiber
     void getFiberLocation(double &y, double &z);
     UniaxialMaterial *getMaterial(void) {return theMaterial;};
     double getArea(void) {return area;};
+	double getd(void) {return dValue;};
 
   protected:
     
@@ -89,6 +90,7 @@ class UniaxialFiber3d: public Fiber
     static Matrix ks;       // static class wide matrix object for returns
     static Vector fs;	    // static class wide vector object for returns					
     static ID code;
+	double dValue;
 };
 
 

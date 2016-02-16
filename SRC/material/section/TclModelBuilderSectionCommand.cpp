@@ -19,7 +19,7 @@
 ** ****************************************************************** */
                                                                         
 // $Revision: 1.31 $
-// $Date: 2009-12-17 20:10:53 $
+// $Date: 2009/12/17 20:10:53 $
 // $Source: /usr/local/cvs/OpenSees/SRC/material/section/TclModelBuilderSectionCommand.cpp,v $
                                                                         
                                                                         
@@ -1586,8 +1586,9 @@ TclCommand_addFiber(ClientData clientData, Tcl_Interp *interp, int argc,
       static Vector fiberPosition(2);
 	fiberPosition(0) = yLoc;
 	fiberPosition(1) = zLoc;
+   double dValue=1.0;
 	    
-	theFiber = new UniaxialFiber3d(numFibers, *material, area, fiberPosition);
+	theFiber = new UniaxialFiber3d(numFibers, *material, area, fiberPosition, dValue);
 	if (theFiber == 0) {
 	    opserr <<  "WARNING unable to allocate fiber \n";
 	    return TCL_ERROR;
@@ -1692,8 +1693,9 @@ TclCommand_addHFiber(ClientData clientData, Tcl_Interp *interp, int argc,
       static Vector fiberHPosition(2);
 	fiberHPosition(0) = yHLoc;
 	fiberHPosition(1) = zHLoc;
+	double dValue=1.0;
 	    
-	theHFiber = new UniaxialFiber3d(numHFibers, *Hmaterial, Harea, fiberHPosition);
+	theHFiber = new UniaxialFiber3d(numHFibers, *Hmaterial, Harea, fiberHPosition, dValue);
 	if (theHFiber == 0) {
 	    opserr <<  "WARNING unable to allocate Hfiber \n";
 	    return TCL_ERROR;
@@ -2051,7 +2053,11 @@ buildSection(Tcl_Interp *interp, TclModelBuilder *theTclModelBuilder,
 
       int  numCells;
       Cell **cell;
-    
+	  double dVal=0.0;
+	  double dValue=0.0;
+	  double HeightValue[3];
+	  for (int i = 0; i < 3; i++)
+		  HeightValue[i] = 0.0;    
       k = 0;
       for (i = 0; i < numPatches; i++)
       {
@@ -2077,18 +2083,27 @@ buildSection(Tcl_Interp *interp, TclModelBuilder *theTclModelBuilder,
 	    fibersMaterial(k) = matTag;
             fibersArea(k)     = cell[j]->getArea();
             fiberPosition     = cell[j]->getCentroidPosition();
+			dVal = cell[j]->getdValue();
+			if (fabs(dVal) > fabs(HeightValue[i]))
+				HeightValue[i] = 2.0 * fabs(dVal);
+			
 
             fibersPosition(0,k) = fiberPosition(0);
 	    fibersPosition(1,k) = fiberPosition(1);
 	      
             k++;
          }
+//		 opserr<<"HeightValue[i]"<<HeightValue[i];
   
          for (j = 0; j < numCells; j++)
            delete cell[j];
   
          delete [] cell;
       }
+	  dValue = HeightValue[0]-0.5*(HeightValue[0]-HeightValue[1]);
+	  //opserr<<"HeightValue[0]"<<HeightValue[0];
+	  //opserr<<"HeightValue[1]"<<HeightValue[1];
+	  //opserr<<"dValue"<<dValue;
          
       ReinfBar *reinfBar;
       int numReinfBars;
@@ -2193,7 +2208,7 @@ buildSection(Tcl_Interp *interp, TclModelBuilder *theTclModelBuilder,
 	    fiberPosition(0) = fibersPosition(0,k);
 	    fiberPosition(1) = fibersPosition(1,k);
 	    
-	    fiber[i] = new UniaxialFiber3d(k, *material, fibersArea(k), fiberPosition);
+	    fiber[i] = new UniaxialFiber3d(k, *material, fibersArea(k), fiberPosition, dValue);
 	    if (fibersArea(k) < 0) opserr << "ERROR: " << fiberPosition(0) << " " << fiberPosition(1) << endln;
             if (!fiber[k]) 
             {
@@ -2449,8 +2464,9 @@ buildSectionInt(Tcl_Interp *interp, TclModelBuilder *theTclModelBuilder,
 	    
 	    fiberPosition(0) = fibersPosition(0,k);
 	    fiberPosition(1) = fibersPosition(1,k);
+		double dValue=1.0;
 	    
-	    fiber[i] = new UniaxialFiber3d(k, *material, fibersArea(k), fiberPosition);
+	    fiber[i] = new UniaxialFiber3d(k, *material, fibersArea(k), fiberPosition, dValue);
 	    if (fibersArea(k) < 0) opserr << "ERROR: " << fiberPosition(0) << " " << fiberPosition(1) << endln;
             if (!fiber[k]) 
             {
@@ -2589,7 +2605,8 @@ TclCommand_addUCFiberSection (ClientData clientData, Tcl_Interp *interp, int arg
 	} else {
 	  static Vector pos(2);
 	  pos(0) = ycoord; pos(1) = zcoord;
-	  theFiber = new UniaxialFiber3d(fiberCount++, *theMaterial, area, pos);
+	  double dValue=1.0;
+	  theFiber = new UniaxialFiber3d(fiberCount++, *theMaterial, area, pos, dValue);
 	  if (theFiber != 0) {
 	    section3d->addFiber(*theFiber);
 	    delete theFiber;

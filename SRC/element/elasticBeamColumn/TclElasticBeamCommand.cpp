@@ -62,7 +62,7 @@ TclModelBuilder_addElasticBeam(ClientData clientData, Tcl_Interp *interp, int ar
 
   if (ndm == 2) {
     // check plane frame problem has 3 dof per node
-    if (ndf != 3) {
+    if ((ndf != 3) || (ndf != 4)) {
       opserr << "WARNING invalid ndf: " << ndf;
       opserr << ", for plane problem need 3 - elasticBeamColumn \n";    
       return TCL_ERROR;
@@ -172,7 +172,7 @@ TclModelBuilder_addElasticBeam(ClientData clientData, Tcl_Interp *interp, int ar
 
   else if (ndm == 3) {
     // check space frame problem has 6 dof per node
-    if (ndf != 6) {
+    if ((ndf != 6) || (ndf != 7)) {
       opserr << "WARNING invalid ndof: " << ndf;
       opserr << ", for 3d problem  need 6 - elasticBeamColumn \n";    
       return TCL_ERROR;
@@ -188,7 +188,7 @@ TclModelBuilder_addElasticBeam(ClientData clientData, Tcl_Interp *interp, int ar
 
     // get the id, end nodes, and section properties
     int beamId, iNode, jNode, transTag;
-    double A,E,G,Jx,Iy,Iz;
+    double A,E,G,Jx,Iy,Iz,Cw;
     if (Tcl_GetInt(interp, argv[1+eleArgStart], &beamId) != TCL_OK) {
       opserr << "WARNING invalid beamId: " << argv[1+eleArgStart];
       opserr << " - elasticBeamColumn beamId iNode jNode A E G Jx Iy Iz\n ";
@@ -287,6 +287,12 @@ TclModelBuilder_addElasticBeam(ClientData clientData, Tcl_Interp *interp, int ar
 	opserr << " iNode jNode A E G Jx Iy Iz\n";
 	return TCL_ERROR;
       }      
+	  if (Tcl_GetDouble(interp, argv[11+eleArgStart], &Cw) != TCL_OK) {
+	opserr << "WARNING invalid Iz - elasticBeamColumn " << beamId;
+	opserr << " iNode jNode A E G Jx Iy Iz\n";
+	return TCL_ERROR;
+      } 
+	 Tcl_GetDouble(interp, argv[11+eleArgStart], &Cw);
       
       CrdTransf3d *theTrans = theTclBuilder->getCrdTransf3d(transTag);
     
@@ -298,7 +304,7 @@ TclModelBuilder_addElasticBeam(ClientData clientData, Tcl_Interp *interp, int ar
 
 
       double mass = 0.0;
-      int argi = 11+eleArgStart;
+      int argi = 12+eleArgStart;
       
       while (argi < argc) {
 	if (strcmp(argv[argi],"-mass") == 0) {
@@ -319,7 +325,7 @@ TclModelBuilder_addElasticBeam(ClientData clientData, Tcl_Interp *interp, int ar
 
       
       // now create the beam and add it to the Domain
-      theBeam = new ElasticBeam3d (beamId,A,E,G,Jx,Iy,Iz,iNode,jNode, *theTrans, mass);
+      theBeam = new ElasticBeam3d (beamId,A,E,G,Jx,Iy,Iz,iNode,jNode,*theTrans,Cw,mass);
     }
 
     if (theBeam == 0) {

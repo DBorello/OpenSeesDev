@@ -19,7 +19,7 @@
 ** ****************************************************************** */
                                                                         
 // $Revision: 1.9 $
-// $Date: 2007-02-02 01:18:42 $
+// $Date: 2007/02/02 01:18:42 $
 // $Source: /usr/local/cvs/OpenSees/SRC/material/section/fiber/UniaxialFiber2d.h,v $
                                                                         
                                                                         
@@ -77,6 +77,7 @@ class UniaxialFiber2d : public Fiber
     void getFiberLocation(double &y, double &z);
     UniaxialMaterial *getMaterial(void) {return theMaterial;};
     double getArea(void) {return area;};
+	double getd(void) {return 1.0;};
 
     int setParameter(const char **argv, int argc, Parameter &param);
     int updateParameter(int parameterID, Information &info);

@@ -44,9 +44,12 @@
 #include <ElementalLoad.h>
 #include <BeamIntegration.h>
 #include <Parameter.h>
+using std::string;
+using namespace std;
 
-Matrix DispBeamColumn3d::K(12,12);
-Vector DispBeamColumn3d::P(12);
+
+Matrix DispBeamColumn3d::K(14,14);
+Vector DispBeamColumn3d::P(14);
 double DispBeamColumn3d::workArea[200];
 
 DispBeamColumn3d::DispBeamColumn3d(int tag, int nd1, int nd2,
@@ -56,7 +59,7 @@ DispBeamColumn3d::DispBeamColumn3d(int tag, int nd1, int nd2,
 :Element (tag, ELE_TAG_DispBeamColumn3d),
 numSections(numSec), theSections(0), crdTransf(0), beamInt(0),
 connectedExternalNodes(2), 
-Q(12), q(6), rho(r), parameterID(0)
+Q(14), q(9), rho(r), parameterID(0)
 {
   // Allocate arrays of pointers to SectionForceDeformations
   theSections = new SectionForceDeformation *[numSections];
@@ -105,6 +108,11 @@ Q(12), q(6), rho(r), parameterID(0)
   q0[2] = 0.0;
   q0[3] = 0.0;
   q0[4] = 0.0;
+  q0[5] = 0.0;
+  q0[6] = 0.0;
+  q0[7] = 0.0;
+  q0[8] = 0.0;
+  q0[9] = 0.0;
 
   p0[0] = 0.0;
   p0[1] = 0.0;
@@ -117,13 +125,19 @@ DispBeamColumn3d::DispBeamColumn3d()
 :Element (0, ELE_TAG_DispBeamColumn3d),
 numSections(0), theSections(0), crdTransf(0), beamInt(0),
 connectedExternalNodes(2), 
-Q(12), q(6), rho(0.0), parameterID(0)
+Q(14), q(9), rho(0.0), parameterID(0)
 {
   q0[0] = 0.0;
   q0[1] = 0.0;
   q0[2] = 0.0;
   q0[3] = 0.0;
   q0[4] = 0.0;
+  q0[5] = 0.0;
+  q0[6] = 0.0;
+  q0[7] = 0.0;
+  q0[8] = 0.0;
+  q0[9] = 0.0;
+
 
   p0[0] = 0.0;
   p0[1] = 0.0;
@@ -175,7 +189,7 @@ DispBeamColumn3d::getNodePtrs()
 int
 DispBeamColumn3d::getNumDOF()
 {
-    return 12;
+    return 14;
 }
 
 void
@@ -204,7 +218,7 @@ DispBeamColumn3d::setDomain(Domain *theDomain)
     int dofNd1 = theNodes[0]->getNumberDOF();
     int dofNd2 = theNodes[1]->getNumberDOF();
     
-    if (dofNd1 != 6 || dofNd2 != 6) {
+    if (((dofNd1 != 6) || (dofNd1 != 7)) || ((dofNd2 != 6) || (dofNd2 != 7))) {
 	//opserr << "FATAL ERROR DispBeamColumn3d (tag: %d), has differing number of DOFs at its nodes",
 	//	this->getTag());
 	
@@ -286,6 +300,7 @@ DispBeamColumn3d::update(void)
   
   double L = crdTransf->getInitialLength();
   double oneOverL = 1.0/L;
+  double oneOverLsquare = 1.0/L/L;
 
   //const Matrix &pts = quadRule.getIntegrPointCoords(numSections);
   double xi[maxNumSections];
@@ -297,30 +312,23 @@ DispBeamColumn3d::update(void)
     int order = theSections[i]->getOrder();
     const ID &code = theSections[i]->getType();
 
-    Vector e(workArea, order);
+    Vector e(workArea, 8);
       
     double xi6 = 6.0*xi[i];
+	double xi12 = 12.0*xi[i];
+	double xi1 = xi[i];
     
     int j;
-    for (j = 0; j < order; j++) {
-      switch(code(j)) {
-      case SECTION_RESPONSE_P:
-	e(j) = oneOverL*v(0);
-	break;
-      case SECTION_RESPONSE_MZ:
-	e(j) = oneOverL*((xi6-4.0)*v(1) + (xi6-2.0)*v(2));
-	break;
-      case SECTION_RESPONSE_MY:
-	e(j) = oneOverL*((xi6-4.0)*v(3) + (xi6-2.0)*v(4));
-	break;
-      case SECTION_RESPONSE_T:
-	e(j) = oneOverL*v(5);
-	break;
-      default:
-	e(j) = 0.0;
-	break;
-      }
-    }
+
+    // here total strain (not incremental) is used
+	e(0) = oneOverL*v(8);
+	e(1) = oneOverL*((xi6-4.0)*v(1) + (xi6-2.0)*v(5));
+	e(2) = oneOverL*((xi6-4.0)*v(2) + (xi6-2.0)*v(6));
+	e(4) =oneOverL*(6.0*xi1*xi1-6.0*xi1)*v(0)+(1.0-4.0*xi1+3*xi1*xi1)*v(3)+oneOverL*(6.0*xi1-6.0*xi1*xi1)*v(4)+(3.0*xi1*xi1-2.0*xi1)*v(7);
+	e(3) = -oneOverLsquare*(xi12-6.0)*v(0)-oneOverL*(xi6-4.0)*v(3)-oneOverLsquare*(6.0-xi12)*v(4)-oneOverL*(xi6-2.0)*v(7);
+	e(5) = (1.0+3.0*xi1*xi1-4.0*xi1)*v(1)+(3.0*xi1*xi1-2.0*xi1)*v(5);
+	e(6) = (1.0+3.0*xi1*xi1-4.0*xi1)*v(2)+(3.0*xi1*xi1-2.0*xi1)*v(6);
+	e(7) = (1.0-3.0*xi1*xi1+2.0*xi1*xi1*xi1)*v(0)+L*xi1*(1.0-xi1)*(1.0-xi1)*v(3)+(3.0*xi1*xi1-2.0*xi1*xi1*xi1)*v(4)+L*xi1*xi1*(xi1-1.0)*v(7);
     
     // Set the section deformations
     err += theSections[i]->setTrialSectionDeformation(e);
@@ -337,7 +345,14 @@ DispBeamColumn3d::update(void)
 const Matrix&
 DispBeamColumn3d::getTangentStiff()
 {
-  static Matrix kb(6,6);
+  static Matrix kb(9,9);
+  static Matrix N1(6,8);
+  static Matrix N2(8,9);
+  static Matrix N3(8,8);
+  static Matrix kbPart1(9,9);
+  static Matrix Gmax(8,8);
+  static Matrix kbPart2(9,9);
+  const Vector &v = crdTransf->getBasicTrialDisp();
   
   // Zero for integral
   kb.Zero();
@@ -345,6 +360,8 @@ DispBeamColumn3d::getTangentStiff()
   
   double L = crdTransf->getInitialLength();
   double oneOverL = 1.0/L;
+  double oneOverLsquare=1.0/L/L;
+  double oneOverLcube=1.0/L/L/L;
 
   //const Matrix &pts = quadRule.getIntegrPointCoords(numSections);
   //const Vector &wts = quadRule.getIntegrPointWeights(numSections);
@@ -359,99 +376,114 @@ DispBeamColumn3d::getTangentStiff()
     int order = theSections[i]->getOrder();
     const ID &code = theSections[i]->getType();
 
-    Matrix ka(workArea, order, 6);
-    ka.Zero();
+	N1.Zero();
+	N2.Zero();
+	N3.Zero();
+	kbPart1.Zero();
+	Gmax.Zero();
+	kbPart2.Zero();
 
     double xi6 = 6.0*xi[i];
+	double xi12 = 12.0*xi[i];
+	double xi1 = xi[i];
+	double dNv1 = 1.0+3.0*xi1*xi1-4.0*xi1;
+	double dNv2 = 3.0*xi1*xi1-2.0*xi1;
+	double dNw1 = dNv1;
+	double dNw2 = dNv2;
+	double ddNv1 = 6.0*xi1*oneOverL-4.0*oneOverL;
+	double ddNv2 = 6.0*xi1*oneOverL-2.0*oneOverL;
+	double ddNw1 = ddNv1;
+	double ddNw2 = ddNv2;
+	double Nf1 = 1.0-3.0*xi1*xi1+2.0*xi1*xi1*xi1;
+	double Nf2 = xi1*L*(1.0-xi1)*(1.0-xi1);
+	double Nf3 = 3.0*xi1*xi1-2.0*xi1*xi1*xi1;
+	double Nf4 = xi1*xi1*L*(xi1-1.0);
+	double dNf1 = 6.0*xi1*xi1*oneOverL-6.0*xi1*oneOverL;
+	double dNf2 = dNv1;
+	double dNf3 = 6.0*xi1*oneOverL-6.0*xi1*xi1*oneOverL;
+	double dNf4 = dNv2;
+	double ddNf1 = 12.0*xi1*oneOverLsquare-6.0*oneOverLsquare;
+	double ddNf2 = ddNv1;
+	double ddNf3 = 6.0*oneOverLsquare-12.0*xi1*oneOverLsquare;
+	double ddNf4 = ddNv2;
+	N1(0,0) = 1.0;
+	N1(0,1) = dNv1*v(1)+dNv2*v(5);
+	N1(0,2) = dNw1*v(2)+dNw2*v(6);
+	N1(1,3) = 1.0;
+	N1(1,4) = Nf1*v(0)+Nf2*v(3)+Nf3*v(4)+Nf4*v(7);
+	N1(1,5) = ddNw1*v(2)+ddNw2*v(6);
+	N1(2,3) = -N1(1,4);
+	N1(2,4) = 1.0;
+	N1(2,5) = -ddNv1*v(1)-ddNv2*v(5);
+	N1(3,6) = dNf1*v(0)+dNf2*v(3)+dNf3*v(4)+dNf4*v(7);
+	N1(4,7) = -1.0;
+	N1(5,6) = 1.0;
+	N2(0,8) = oneOverL;
+	N2(1,1) = dNv1;
+	N2(1,5) = dNv2;
+	N2(2,2) = dNw1;
+	N2(2,6) = dNw2;
+	N2(3,1) = ddNv1;
+	N2(3,5) = ddNv2;
+	N2(4,2) = ddNw1;
+	N2(4,6) = ddNw2;
+	N2(5,0) = Nf1;
+	N2(5,3) = Nf2;
+	N2(5,4) = Nf3;
+	N2(5,7) = Nf4;
+	N2(6,0) = dNf1;
+	N2(6,3) = dNf2;
+	N2(6,4) = dNf3;
+	N2(6,7) = dNf4;
+	N2(7,0) = ddNf1;
+	N2(7,3) = ddNf2;
+	N2(7,4) = ddNf3;
+	N2(7,7) = ddNf4;
+
+
 
     // Get the section tangent stiffness and stress resultant
     const Matrix &ks = theSections[i]->getSectionTangent();
+
+	//calculate kb, refer to Alemdar
+
+	N3.addMatrixTripleProduct(0.0, N1, ks, 1.0);
+	kbPart1.addMatrixTripleProduct(0.0, N2, N3, 1.0);
     const Vector &s = theSections[i]->getStressResultant();
+        
+	Gmax(1,1) = s(0);
+	Gmax(2,2) = s(0);
+	Gmax(3,5) = s(1);
+	Gmax(4,5) = s(2);
+	Gmax(5,3) = s(2);
+	Gmax(5,4) = s(1);
+	Gmax(6,6) = s(3);
+	kbPart2.addMatrixTripleProduct(0.0, N2, Gmax, 1.0);
         
     // Perform numerical integration
     //kb.addMatrixTripleProduct(1.0, *B, ks, wts(i)/L);
-    double wti = wt[i]*oneOverL;
-    double tmp;
-    int j, k;
-    for (j = 0; j < order; j++) {
-      switch(code(j)) {
-      case SECTION_RESPONSE_P:
-	for (k = 0; k < order; k++)
-	  ka(k,0) += ks(k,j)*wti;
-	break;
-      case SECTION_RESPONSE_MZ:
-	for (k = 0; k < order; k++) {
-	  tmp = ks(k,j)*wti;
-	  ka(k,1) += (xi6-4.0)*tmp;
-	  ka(k,2) += (xi6-2.0)*tmp;
-	}
-	break;
-      case SECTION_RESPONSE_MY:
-	for (k = 0; k < order; k++) {
-	  tmp = ks(k,j)*wti;
-	  ka(k,3) += (xi6-4.0)*tmp;
-	  ka(k,4) += (xi6-2.0)*tmp;
-	}
-	break;
-      case SECTION_RESPONSE_T:
-	for (k = 0; k < order; k++)
-	  ka(k,5) += ks(k,j)*wti;
-	break;
-      default:
-	break;
-      }
-    }
-    for (j = 0; j < order; j++) {
-      switch (code(j)) {
-      case SECTION_RESPONSE_P:
-	for (k = 0; k < 6; k++)
-	  kb(0,k) += ka(j,k);
-	break;
-      case SECTION_RESPONSE_MZ:
-	for (k = 0; k < 6; k++) {
-	  tmp = ka(j,k);
-	  kb(1,k) += (xi6-4.0)*tmp;
-	  kb(2,k) += (xi6-2.0)*tmp;
-	}
-	break;
-      case SECTION_RESPONSE_MY:
-	for (k = 0; k < 6; k++) {
-	  tmp = ka(j,k);
-	  kb(3,k) += (xi6-4.0)*tmp;
-	  kb(4,k) += (xi6-2.0)*tmp;
-	}
-	break;
-      case SECTION_RESPONSE_T:
-	for (k = 0; k < 6; k++)
-	  kb(5,k) += ka(j,k);
-	break;
-      default:
-	break;
+    double wti = wt[i];
+	
+	for (int j=0; j<9; j++)
+		{
+			for (int k=0; k<9; k++)
+			{
+				kb(j,k) +=kbPart1(j,k)*L*wti + kbPart2(j,k)*L*wti;
       }
     }
     
-    //q.addMatrixTransposeVector(1.0, *B, s, wts(i));
-    double si;
-    for (j = 0; j < order; j++) {
-      si = s(j)*wt[i];
-      switch(code(j)) {
-      case SECTION_RESPONSE_P:
-	q(0) += si;
-	break;
-      case SECTION_RESPONSE_MZ:
-	q(1) += (xi6-4.0)*si; q(2) += (xi6-2.0)*si;
-	break;
-      case SECTION_RESPONSE_MY:
-	q(3) += (xi6-4.0)*si; q(4) += (xi6-2.0)*si;
-	break;
-      case SECTION_RESPONSE_T:
-	q(5) += si;
-	break;
-      default:
-	break;
-      }
-    }
-    
+	
+	static Vector qProduct1(8);
+	static Vector qProduct2(9);
+	qProduct1.Zero();
+	qProduct2.Zero();
+	qProduct1.addMatrixTransposeVector(0.0, N1, s, 1.0);
+	qProduct2.addMatrixTransposeVector(0.0, N2, qProduct1, 1.0);
+
+	for (int j=0; j<9; j++)
+		{
+			q(j) += qProduct2(j)*L*wti;
+		}
   }
   
   q(0) += q0[0];
@@ -469,13 +501,22 @@ DispBeamColumn3d::getTangentStiff()
 const Matrix&
 DispBeamColumn3d::getInitialBasicStiff()
 {
-  static Matrix kb(6,6);
+  static Matrix kb(9,9);
+  static Matrix N1(6,8);
+  static Matrix N2(8,9);
+  static Matrix N3(8,8);
+  static Matrix kbPart1(9,9);
+  static Matrix Gmax(8,8);
+  static Matrix kbPart2(9,9);
   
   // Zero for integral
   kb.Zero();
+  const Vector &v = crdTransf->getBasicTrialDisp();
   
   double L = crdTransf->getInitialLength();
   double oneOverL = 1.0/L;
+  double oneOverLsquare=1.0/L/L;
+  double oneOverLcube=1.0/L/L/L;
 
   //const Matrix &pts = quadRule.getIntegrPointCoords(numSections);
   //const Vector &wts = quadRule.getIntegrPointWeights(numSections);
@@ -490,73 +531,96 @@ DispBeamColumn3d::getInitialBasicStiff()
     int order = theSections[i]->getOrder();
     const ID &code = theSections[i]->getType();
     
-    Matrix ka(workArea, order, 6);
-    ka.Zero();
+	N1.Zero();
+	N2.Zero();
+	N3.Zero();
+	kbPart1.Zero();
+	Gmax.Zero();
+	kbPart2.Zero();
+
     
     double xi6 = 6.0*xi[i];
+	double xi12=12*xi[i];
+	double xi1=xi[i];
+	double dNv1 = 1.0+3.0*xi1*xi1-4.0*xi1;
+	double dNv2 = 3.0*xi1*xi1-2.0*xi1;
+	double dNw1 = dNv1;
+	double dNw2 = dNv2;
+	double ddNv1 = 6.0*xi1*oneOverL-4.0*oneOverL;
+	double ddNv2 = 6.0*xi1*oneOverL-2.0*oneOverL;
+	double ddNw1 = ddNv1;
+	double ddNw2 = ddNv2;
+	double Nf1 = 1.0-3.0*xi1*xi1+2.0*xi1*xi1*xi1;
+	double Nf2 = xi1*L*(1.0-xi1)*(1.0-xi1);
+	double Nf3 = 3.0*xi1*xi1-2.0*xi1*xi1*xi1;
+	double Nf4 = xi1*xi1*L*(xi1-1.0);
+	double dNf1 = 6.0*xi1*xi1*oneOverL-6.0*xi1*oneOverL;
+	double dNf2 = dNv1;
+	double dNf3 = 6.0*xi1*oneOverL-6.0*xi1*xi1*oneOverL;
+	double dNf4 = dNv2;
+	double ddNf1 = 12.0*xi1*oneOverLsquare-6.0*oneOverLsquare;
+	double ddNf2 = ddNv1;
+	double ddNf3 = 6.0*oneOverLsquare-12.0*xi1*oneOverLsquare;
+	double ddNf4 = ddNv2;
+	N1(0,0) = 1.0;
+	N1(0,1) = dNv1*v(1)+dNv2*v(5);
+	N1(0,2) = dNw1*v(2)+dNw2*v(6);
+	N1(1,3) = 1.0;
+	N1(1,4) = Nf1*v(0)+Nf2*v(3)+Nf3*v(4)+Nf4*v(7);
+	N1(1,5) = ddNw1*v(2)+ddNw2*v(6);
+	N1(2,3) = -N1(1,4);
+	N1(2,4) = 1.0;
+	N1(2,5) = -ddNv1*v(1)-ddNv2*v(5);
+	N1(3,6) = dNf1*v(0)+dNf2*v(3)+dNf3*v(4)+dNf4*v(7);
+	N1(4,7) = -1.0;
+	N1(5,6) = 1.0;
+	N2(0,8) = oneOverL;
+	N2(1,1) = dNv1;
+	N2(1,5) = dNv2;
+	N2(2,2) = dNw1;
+	N2(2,6) = dNw2;
+	N2(3,1) = ddNv1;
+	N2(3,5) = ddNv2;
+	N2(4,2) = ddNw1;
+	N2(4,6) = ddNw2;
+	N2(5,0) = Nf1;
+	N2(5,3) = Nf2;
+	N2(5,4) = Nf3;
+	N2(5,7) = Nf4;
+	N2(6,0) = dNf1;
+	N2(6,3) = dNf2;
+	N2(6,4) = dNf3;
+	N2(6,7) = dNf4;
+	N2(7,0) = ddNf1;
+	N2(7,3) = ddNf2;
+	N2(7,4) = ddNf3;
+	N2(7,7) = ddNf4;
+
     
     // Get the section tangent stiffness and stress resultant
     const Matrix &ks = theSections[i]->getInitialTangent();
+	N3.addMatrixTripleProduct(0.0, N1, ks, 1.0);
+	kbPart1.addMatrixTripleProduct(0.0, N2, N3, 1.0);
+    const Vector &s = theSections[i]->getStressResultant();
+	Gmax(1,1) = s(0);
+	Gmax(2,2) = s(0);
+	Gmax(3,5) = s(1);
+	Gmax(4,5) = s(2);
+	Gmax(5,3) = s(2);
+	Gmax(5,4) = s(1);
+	Gmax(6,6) = s(3);
+	kbPart2.addMatrixTripleProduct(0.0, N2, Gmax, 1.0);
+	//opserr<<"s"<<s;
     
     // Perform numerical integration
     //kb.addMatrixTripleProduct(1.0, *B, ks, wts(i)/L);
-    double wti = wt[i]*oneOverL;
-    double tmp;
-    int j, k;
-    for (j = 0; j < order; j++) {
-      switch(code(j)) {
-      case SECTION_RESPONSE_P:
-	for (k = 0; k < order; k++)
-	  ka(k,0) += ks(k,j)*wti;
-	break;
-      case SECTION_RESPONSE_MZ:
-	for (k = 0; k < order; k++) {
-	  tmp = ks(k,j)*wti;
-	  ka(k,1) += (xi6-4.0)*tmp;
-	  ka(k,2) += (xi6-2.0)*tmp;
-	}
-	break;
-      case SECTION_RESPONSE_MY:
-	for (k = 0; k < order; k++) {
-	  tmp = ks(k,j)*wti;
-	  ka(k,3) += (xi6-4.0)*tmp;
-	  ka(k,4) += (xi6-2.0)*tmp;
-	}
-	break;
-      case SECTION_RESPONSE_T:
-	for (k = 0; k < order; k++)
-	  ka(k,5) += ks(k,j)*wti;
-	break;
-      default:
-	break;
-      }
-    }
-    for (j = 0; j < order; j++) {
-      switch (code(j)) {
-      case SECTION_RESPONSE_P:
-	for (k = 0; k < 6; k++)
-	  kb(0,k) += ka(j,k);
-	break;
-      case SECTION_RESPONSE_MZ:
-	for (k = 0; k < 6; k++) {
-	  tmp = ka(j,k);
-	  kb(1,k) += (xi6-4.0)*tmp;
-	  kb(2,k) += (xi6-2.0)*tmp;
-	}
-	break;
-      case SECTION_RESPONSE_MY:
-	for (k = 0; k < 6; k++) {
-	  tmp = ka(j,k);
-	  kb(3,k) += (xi6-4.0)*tmp;
-	  kb(4,k) += (xi6-2.0)*tmp;
-	}
-	break;
-      case SECTION_RESPONSE_T:
-	for (k = 0; k < 6; k++)
-	  kb(5,k) += ka(j,k);
-	break;
-      default:
-	break;
+    double wti = wt[i];
+	
+	for (int j=0; j<9; j++)
+		{
+			for (int k=0; k<9; k++)
+			{
+				kb(j,k) +=kbPart1(j,k)*L*wti + kbPart2(j,k)*L*wti;
       }
     }
     
@@ -728,14 +792,18 @@ const Vector&
 DispBeamColumn3d::getResistingForce()
 {
   double L = crdTransf->getInitialLength();
-
+  double oneOverLsquare=1.0/L/L;
+  double oneOverLcube=1.0/L/L/L;
+  double oneOverL=1.0/L;
+  static Matrix N1(6,8);
+  static Matrix N2(8,9);
   //const Matrix &pts = quadRule.getIntegrPointCoords(numSections);
   //const Vector &wts = quadRule.getIntegrPointWeights(numSections);
   double xi[maxNumSections];
   beamInt->getSectionLocations(numSections, L, xi);
   double wt[maxNumSections];
   beamInt->getSectionWeights(numSections, L, wt);
-
+  const Vector &v = crdTransf->getBasicTrialDisp();
   // Zero for integration
   q.Zero();
   
@@ -744,34 +812,94 @@ DispBeamColumn3d::getResistingForce()
     
     int order = theSections[i]->getOrder();
     const ID &code = theSections[i]->getType();
+	N1.Zero();
+	N2.Zero();
 
     double xi6 = 6.0*xi[i];
+	double xi12=12*xi[i];
+	double xi1=xi[i];
+	double dNv1 = 1.0+3.0*xi1*xi1-4.0*xi1;
+	double dNv2 = 3.0*xi1*xi1-2.0*xi1;
+	double dNw1 = dNv1;
+	double dNw2 = dNv2;
+	double ddNv1 = 6.0*xi1*oneOverL-4.0*oneOverL;
+	double ddNv2 = 6.0*xi1*oneOverL-2.0*oneOverL;
+	double ddNw1 = ddNv1;
+	double ddNw2 = ddNv2;
+	double Nf1 = 1.0-3.0*xi1*xi1+2.0*xi1*xi1*xi1;
+	double Nf2 = xi1*L*(1.0-xi1)*(1.0-xi1);
+	double Nf3 = 3.0*xi1*xi1-2.0*xi1*xi1*xi1;
+	double Nf4 = xi1*xi1*L*(xi1-1.0);
+	double dNf1 = 6.0*xi1*xi1*oneOverL-6.0*xi1*oneOverL;
+	double dNf2 = dNv1;
+	double dNf3 = 6.0*xi1*oneOverL-6.0*xi1*xi1*oneOverL;
+	double dNf4 = dNv2;
+	double ddNf1 = 12.0*xi1*oneOverLsquare-6.0*oneOverLsquare;
+	double ddNf2 = ddNv1;
+	double ddNf3 = 6.0*oneOverLsquare-12.0*xi1*oneOverLsquare;
+	double ddNf4 = ddNv2;
+	N1(0,0) = 1.0;
+	N1(0,1) = dNv1*v(1)+dNv2*v(5);
+	N1(0,2) = dNw1*v(2)+dNw2*v(6);
+	N1(1,3) = 1.0;
+	N1(1,4) = Nf1*v(0)+Nf2*v(3)+Nf3*v(4)+Nf4*v(7);
+	N1(1,5) = ddNw1*v(2)+ddNw2*v(6);
+	N1(2,3) = -N1(1,4);
+	N1(2,4) = 1.0;
+	N1(2,5) = -ddNv1*v(1)-ddNv2*v(5);
+	N1(3,6) = dNf1*v(0)+dNf2*v(3)+dNf3*v(4)+dNf4*v(7);
+	N1(4,7) = -1.0;
+	N1(5,6) = 1.0;
+	N2(0,8) = oneOverL;
+	N2(1,1) = dNv1;
+	N2(1,5) = dNv2;
+	N2(2,2) = dNw1;
+	N2(2,6) = dNw2;
+	N2(3,1) = ddNv1;
+	N2(3,5) = ddNv2;
+	N2(4,2) = ddNw1;
+	N2(4,6) = ddNw2;
+	N2(5,0) = Nf1;
+	N2(5,3) = Nf2;
+	N2(5,4) = Nf3;
+	N2(5,7) = Nf4;
+	N2(6,0) = dNf1;
+	N2(6,3) = dNf2;
+	N2(6,4) = dNf3;
+	N2(6,7) = dNf4;
+	N2(7,0) = ddNf1;
+	N2(7,3) = ddNf2;
+	N2(7,4) = ddNf3;
+	N2(7,7) = ddNf4;
     
     // Get section stress resultant
     const Vector &s = theSections[i]->getStressResultant();
+
+  
+	double wti=wt[i];
+  /*q(0) += ((6.0-xi12)*oneOverL*s(3)+(6.0*xi1*xi1-xi6)*s(4))*wti;
+  q(1) += (xi6-4.0)*s(1)*wti;
+  q(2) += (xi6-4.0)*s(2)*wti;
+  q(3) += ((4.0-xi6)*s(3)+L*(1.0-4.0*xi1+3.0*xi1*xi1)*s(4))*wti;
+  q(4) += ((xi12-6.0)*oneOverL*s(3)+(xi6-6.0*xi1*xi1)*s(4))*wti;
+  q(5) += (xi6-2.0)*s(1)*wti;
+  q(6) += (xi6-2.0)*s(2)*wti;
+  q(7) += ((2.0-xi6)*s(3)+(3.0*xi1*xi1-2.0*xi1)*L*s(4))*wti;
+  q(8) += s(0)*wti;*/
     
     // Perform numerical integration on internal force
     //q.addMatrixTransposeVector(1.0, *B, s, wts(i));
     
-    double si;
-    for (int j = 0; j < order; j++) {
-      si = s(j)*wt[i];
-      switch(code(j)) {
-      case SECTION_RESPONSE_P:
-	q(0) += si;
-	break;
-      case SECTION_RESPONSE_MZ:
-	q(1) += (xi6-4.0)*si; q(2) += (xi6-2.0)*si;
-	break;
-      case SECTION_RESPONSE_MY:
-	q(3) += (xi6-4.0)*si; q(4) += (xi6-2.0)*si;
-	break;
-      case SECTION_RESPONSE_T:
-	q(5) += si;
-	break;
-      default:
-	break;
-      }
+	static Vector qProduct1(8);
+	static Vector qProduct2(9);
+	qProduct1.Zero();
+	qProduct2.Zero();
+	qProduct1.addMatrixTransposeVector(0.0, N1, s, 1.0);
+	qProduct2.addMatrixTransposeVector(0.0, N2, qProduct1, 1.0);
+
+	for (int j=0; j<9; j++)
+		{
+			q(j) += qProduct2(j)*L*wti;
     }
     
   }

@@ -46,15 +46,19 @@
 #include <ID.h>
 #include <math.h>
 #include <stdlib.h>
+#include <iostream>
+#include <fstream>
+Matrix ElasticBeam3d::K(14,14);
+Vector ElasticBeam3d::P(14);
+Matrix ElasticBeam3d::kb(9,9);
+using std::string;
+using namespace std;
 
-Matrix ElasticBeam3d::K(12,12);
-Vector ElasticBeam3d::P(12);
-Matrix ElasticBeam3d::kb(6,6);
 
 ElasticBeam3d::ElasticBeam3d()
   :Element(0,ELE_TAG_ElasticBeam3d), 
-  A(0), E(0), G(0), Jx(0), Iy(0), Iz(0), rho(0.0),
-  Q(12), q(6), connectedExternalNodes(2), theCoordTransf(0)
+  A(0), E(0), G(0), Jx(0), Iy(0), Iz(0), Cw(0), rho(0.0),
+  Q(14), q(9), connectedExternalNodes(2), theCoordTransf(0)
 {
   // does nothing
   q0[0] = 0.0;
@@ -76,10 +80,10 @@ ElasticBeam3d::ElasticBeam3d()
 
 ElasticBeam3d::ElasticBeam3d(int tag, double a, double e, double g, 
 			     double jx, double iy, double iz, int Nd1, int Nd2, 
-			     CrdTransf3d &coordTransf, double r, int sectTag)
+			     CrdTransf3d &coordTransf,  double cw, double r, int sectTag)
   :Element(tag,ELE_TAG_ElasticBeam3d), 
-   A(a), E(e), G(g), Jx(jx), Iy(iy), Iz(iz), rho(r), sectionTag(sectTag),
-  Q(12), q(6), connectedExternalNodes(2), theCoordTransf(0)
+   A(a), E(e), G(g), Jx(jx), Iy(iy), Iz(iz), Cw(cw), rho(r), sectionTag(sectTag),
+  Q(14), q(9), connectedExternalNodes(2), theCoordTransf(0)
 {
   connectedExternalNodes(0) = Nd1;
   connectedExternalNodes(1) = Nd2;
@@ -111,7 +115,7 @@ ElasticBeam3d::ElasticBeam3d(int tag, double a, double e, double g,
 ElasticBeam3d::ElasticBeam3d(int tag, int Nd1, int Nd2, SectionForceDeformation *section, 			     
 			     CrdTransf3d &coordTransf, double r)
   :Element(tag,ELE_TAG_ElasticBeam3d), 
-  Q(12), q(6), connectedExternalNodes(2), theCoordTransf(0)
+  Q(14), q(9), connectedExternalNodes(2), theCoordTransf(0)
 {
   if (section != 0) {
     sectionTag = section->getTag();
@@ -202,7 +206,7 @@ ElasticBeam3d::getNodePtrs(void)
 int
 ElasticBeam3d::getNumDOF(void)
 {
-    return 12;
+    return 14;
 }
 
 void
@@ -230,13 +234,13 @@ ElasticBeam3d::setDomain(Domain *theDomain)
     int dofNd1 = theNodes[0]->getNumberDOF();
     int dofNd2 = theNodes[1]->getNumberDOF();    
     
-    if (dofNd1 != 6) {
+    if ((dofNd1 != 6) || (dofNd1 != 7)) {
       opserr << "ElasticBeam3d::setDomain -- Node 1: " << connectedExternalNodes(0) 
 	     << " has incorrect number of DOF\n";
       exit(-1);
     }
     
-    if (dofNd2 != 6) {
+    if ((dofNd2 != 6) || (dofNd2 != 7)){
       opserr << "ElasticBeam3d::setDomain -- Node 2: " << connectedExternalNodes(1) 
 	     << " has incorrect number of DOF\n";
       exit(-1);
@@ -301,13 +305,21 @@ ElasticBeam3d::getTangentStiff(void)
   double EIyoverL2 = 2.0*Iy*EoverL;		// 2EIy/L
   double EIyoverL4 = 2.0*EIyoverL2;		// 4EIy/L
   double GJoverL = G*Jx*oneOverL;         // GJ/L
+  double ECoverL3=E*Cw/L/L/L;
+  double ECoverL2=E*Cw/L/L;
+  double ECoverL=E*Cw/L;
+  double GJover10=G*Jx/10.0;
+  double GJL=G*Jx*L;
   
-  q(0) = EAoverL*v(0);
-  q(1) = EIzoverL4*v(1) + EIzoverL2*v(2);
-  q(2) = EIzoverL2*v(1) + EIzoverL4*v(2);
-  q(3) = EIyoverL4*v(3) + EIyoverL2*v(4);
-  q(4) = EIyoverL2*v(3) + EIyoverL4*v(4);    
-  q(5) = GJoverL*v(5);
+  q(0) = (12.0*ECoverL3+6.0/5.0*GJoverL)*(v(0)-v(4))+(GJover10+6.0*ECoverL2)*(v(3)+v(7));
+  q(1) = EIzoverL4*v(1) + EIzoverL2*v(5);
+  q(2) = EIyoverL4*v(2) + EIyoverL2*v(6);
+  q(3) = (GJover10+6.0*ECoverL2)*(v(0)-v(4))+(4.0*ECoverL+2.0/15.0*GJL)*v(3)+(2.0*ECoverL-1.0/30.0*GJL)*v(7);
+  q(4) = (12.*ECoverL3+6./5.*GJoverL)*(v(4)-v(0))-(GJover10+6.*ECoverL2)*(v(3)+v(7));
+  q(5) = EIzoverL2*v(1) + EIzoverL4*v(5);
+  q(6) = EIyoverL2*v(2) + EIyoverL4*v(6);
+  q(7) = (GJover10+6.*ECoverL2)*(v(0)-v(4))+(2.*ECoverL-1./30.*GJL)*v(3)+(4.*ECoverL+2./15.*GJL)*v(7);
+  q(8) = EAoverL*v(8);
 
   q(0) += q0[0];
   q(1) += q0[1];
@@ -315,12 +327,20 @@ ElasticBeam3d::getTangentStiff(void)
   q(3) += q0[3];
   q(4) += q0[4];
   
-  kb(0,0) = EAoverL;
-  kb(1,1) = kb(2,2) = EIzoverL4;
-  kb(2,1) = kb(1,2) = EIzoverL2;
-  kb(3,3) = kb(4,4) = EIyoverL4;
-  kb(4,3) = kb(3,4) = EIyoverL2;
-  kb(5,5) = GJoverL;
+  kb(0,0) = 12.*ECoverL3+6./5.*GJoverL;
+  kb(0,3) = kb(3,0) = kb(0,7) = kb(7,0) = GJover10+6.*ECoverL2;
+  kb(0,4) = kb(4,0) = -12.*ECoverL3-6./5.*GJoverL;
+  kb(1,1) = kb(5,5) = EIzoverL4;
+  kb(1,5) = kb(5,1) = EIzoverL2;
+  kb(2,2) = kb(6,6) = EIyoverL4;
+  kb(2,6) = kb(6,2) = EIyoverL2;
+  kb(3,3) = 4.*ECoverL+2./15.*GJL;
+  kb(3,4) = kb(4,3) = -kb(3,0);
+  kb(3,7) = kb(7,3) = 2.*ECoverL-1./30.*GJL;
+  kb(4,4) = -kb(4,0);
+  kb(4,7) = kb(7,4) = -GJover10-6.*ECoverL2;
+  kb(7,7) = 4.*ECoverL+2./15.*GJL;
+  kb(8,8) = EAoverL;
 
   return theCoordTransf->getGlobalStiffMatrix(kb,q);
 }
@@ -340,13 +360,27 @@ ElasticBeam3d::getInitialStiff(void)
   double EIyoverL2 = 2.0*Iy*EoverL;		// 2EIy/L
   double EIyoverL4 = 2.0*EIyoverL2;		// 4EIy/L
   double GJoverL = G*Jx*oneOverL;         // GJ/L
+  double ECoverL3=E*Cw/L/L/L;
+  double ECoverL2=E*Cw/L/L;
+  double ECoverL=E*Cw/L;
+  double GJover10=G*Jx/10.;
+  double GJL=G*Jx*L;
   
-  kb(0,0) = EAoverL;
-  kb(1,1) = kb(2,2) = EIzoverL4;
-  kb(2,1) = kb(1,2) = EIzoverL2;
-  kb(3,3) = kb(4,4) = EIyoverL4;
-  kb(4,3) = kb(3,4) = EIyoverL2;
-  kb(5,5) = GJoverL;
+
+  kb(0,0) = 12.*ECoverL3+6./5.*GJoverL;
+  kb(0,3) = kb(3,0) = kb(0,7) = kb(7,0) = GJover10+6.*ECoverL2;
+  kb(0,4) = kb(4,0) = -12.*ECoverL3-6./5.*GJoverL;
+  kb(1,1) = kb(5,5) = EIzoverL4;
+  kb(1,5) = kb(5,1) = EIzoverL2;
+  kb(2,2) = kb(6,6) = EIyoverL4;
+  kb(2,6) = kb(6,2) = EIyoverL2;
+  kb(3,3) = 4.*ECoverL+2./15.*GJL;
+  kb(3,4) = kb(4,3) = -kb(3,0);
+  kb(3,7) = kb(7,3) = 2.*ECoverL-1./30.*GJL;
+  kb(4,4) = -kb(4,0);
+  kb(4,7) = kb(7,4) = -GJover10-6.*ECoverL2;
+  kb(7,7) = 4.*ECoverL+2./15.*GJL;
+  kb(8,8) = EAoverL;
   
   return theCoordTransf->getInitialGlobalStiffMatrix(kb);
 }
@@ -552,13 +586,22 @@ ElasticBeam3d::getResistingForce()
   double EIyoverL2 = 2.0*Iy*EoverL;		// 2EIy/L
   double EIyoverL4 = 2.0*EIyoverL2;		// 4EIy/L
   double GJoverL = G*Jx*oneOverL;         // GJ/L
+   double ECoverL3=E*Cw/L/L/L;
+  double ECoverL2=E*Cw/L/L;
+  double ECoverL=E*Cw/L;
+  double GJover10=G*Jx/10.;
+  double GJL=G*Jx*L;
+
+  q(0) = (12.0*ECoverL3+6.0/5.0*GJoverL)*(v(0)-v(4))+(GJover10+6.0*ECoverL2)*(v(3)+v(7));
+  q(1) = EIzoverL4*v(1) + EIzoverL2*v(5);
+  q(2) = EIyoverL4*v(2) + EIyoverL2*v(6);
+  q(3) = (GJover10+6.0*ECoverL2)*(v(0)-v(4))+(4.0*ECoverL+2.0/15.0*GJL)*v(3)+(2.0*ECoverL-1.0/30.0*GJL)*v(7);
+  q(4) = (12.*ECoverL3+6./5.*GJoverL)*(v(4)-v(0))-(GJover10+6.*ECoverL2)*(v(3)+v(7));
+  q(5) = EIzoverL2*v(1) + EIzoverL4*v(5);
+  q(6) = EIyoverL2*v(2) + EIyoverL4*v(6);
+  q(7) = (GJover10+6.*ECoverL2)*(v(0)-v(4))+(2.*ECoverL-1./30.*GJL)*v(3)+(4.*ECoverL+2./15.*GJL)*v(7);
+  q(8) = EAoverL*v(8);
   
-  q(0) = EAoverL*v(0);
-  q(1) = EIzoverL4*v(1) + EIzoverL2*v(2);
-  q(2) = EIzoverL2*v(1) + EIzoverL4*v(2);
-  q(3) = EIyoverL4*v(3) + EIyoverL2*v(4);
-  q(4) = EIyoverL2*v(3) + EIyoverL4*v(4);    
-  q(5) = GJoverL*v(5);
   
   q(0) += q0[0];
   q(1) += q0[1];
@@ -568,12 +611,8 @@ ElasticBeam3d::getResistingForce()
   
   Vector p0Vec(p0, 5);
   
-  //  opserr << q;
-
   P = theCoordTransf->getGlobalResistingForce(q, p0Vec);
 
-  // opserr << P;
-  
   // P = P - Q;
   P.addVector(1.0, Q, -1.0);
   

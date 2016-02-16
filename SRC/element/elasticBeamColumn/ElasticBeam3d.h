@@ -19,7 +19,7 @@
 ** ****************************************************************** */
                                                                         
 // $Revision: 1.10 $
-// $Date: 2007-02-02 01:30:47 $
+// $Date: 2007/02/02 01:30:47 $
 // $Source: /usr/local/cvs/OpenSees/SRC/element/elasticBeamColumn/ElasticBeam3d.h,v $
                                                                         
                                                                         
@@ -50,7 +50,7 @@ class ElasticBeam3d : public Element
     ElasticBeam3d();        
     ElasticBeam3d(int tag, double A, double E, double G, 
 		  double Jx, double Iy, double Iz, int Nd1, int Nd2,
-		  CrdTransf3d &theTransf, double rho = 0.0, int sectionTag = 0);
+		  CrdTransf3d &theTransf, double Cw, double rho = 0.0, int sectionTag = 0);
 
     ElasticBeam3d(int tag, int Nd1, int Nd2, SectionForceDeformation *section, 
 		  CrdTransf3d &theTransf, double rho = 0.0);
@@ -92,7 +92,7 @@ class ElasticBeam3d : public Element
     int getResponse (int responseID, Information &info);
  
   private:
-    double A,E,G,Jx,Iy,Iz;
+    double A,E,G,Jx,Iy,Iz,Cw;
 
     double rho;
     int sectionTag;

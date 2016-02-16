@@ -94,9 +94,8 @@ class FiberSection3d : public SectionForceDeformation
     int numFibers;                   // number of fibers in the section
     UniaxialMaterial **theMaterials; // array of pointers to materials
     double   *matData;               // data for the materials [yloc and area]
-    double   kData[9];               // data for ks matrix 
-    double   sData[3];               // data for s vector 
-    
+    double   kData[25];               // data for ks matrix 
+    double   sData[5];               // data for s vector 
     double yBar;       // Section centroid
     double zBar;
   

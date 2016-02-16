@@ -103,7 +103,7 @@ SectionAggregator::SectionAggregator (int tag, SectionForceDeformation &theSec,
     }
 
     theCode = new ID(codeArea, order);
-    e = new Vector(workArea, order);
+    e = new Vector(workArea, order - 1);
     s = new Vector(&workArea[maxOrder], order);
     ks = new Matrix(&workArea[2*maxOrder], order, order);
     fs = new Matrix(&workArea[maxOrder*(maxOrder+2)], order, order);
@@ -159,7 +159,7 @@ SectionAggregator::SectionAggregator (int tag, int numAdds,
     }
 
     theCode = new ID(codeArea, order);
-    e = new Vector(workArea, order);
+    e = new Vector(workArea, order - 1);
     s = new Vector(&workArea[maxOrder], order);
     ks = new Matrix(&workArea[2*maxOrder], order, order);
     fs = new Matrix(&workArea[maxOrder*(maxOrder+2)], order, order);
@@ -205,7 +205,7 @@ SectionAggregator::SectionAggregator (int tag, SectionForceDeformation &theSec,
   }
   
   theCode = new ID(codeArea, order);
-  e = new Vector(workArea, order);
+  e = new Vector(workArea, order - 1);
   s = new Vector(&workArea[maxOrder], order);
   ks = new Matrix(&workArea[2*maxOrder], order, order);
   fs = new Matrix(&workArea[maxOrder*(maxOrder+2)], order, order);
@@ -271,16 +271,19 @@ int SectionAggregator::setTrialSectionDeformation (const Vector &def)
     theSectionOrder = theSection->getOrder();
     Vector v(workArea, theSectionOrder);
     
-    for (i = 0; i < theSectionOrder; i++)
+    for (i = 0; i < theSectionOrder+3; i++)
+	{
       v(i) = def(i);
+	}
+	
     
     ret = theSection->setTrialSectionDeformation(v);
   }
 
-  int order = theSectionOrder + numMats;
+  int order = theSectionOrder - 1 + numMats;
   
-  for ( ; i < order; i++)
-    ret += theAdditions[i-theSectionOrder]->setTrialStrain(def(i));
+  
+    ret += theAdditions[0]->setTrialStrain(def(4));
   
   return ret;
 }
@@ -296,14 +299,14 @@ SectionAggregator::getSectionDeformation(void)
     const Vector &eSec = theSection->getSectionDeformation();
     theSectionOrder = theSection->getOrder();
     
-    for (i = 0; i < theSectionOrder; i++)
+    for (i = 0; i < theSectionOrder - 1; i++)
       (*e)(i) = eSec(i);
   }
   
-  int order = theSectionOrder + numMats;
+  int order = theSectionOrder -1 + numMats;
 
   for ( ; i < order; i++)
-    (*e)(i) = theAdditions[i-theSectionOrder]->getStrain();
+    (*e)(i) = theAdditions[i-theSectionOrder + 1]->getStrain();
 
   return *e;
 }
@@ -322,9 +325,11 @@ SectionAggregator::getSectionTangent(void)
     const Matrix &kSec = theSection->getSectionTangent();
     theSectionOrder = theSection->getOrder();
 
-    for (i = 0; i < theSectionOrder; i++)
-      for (int j = 0; j < theSectionOrder; j++)
+	for (i = 0; i < theSectionOrder; i++){
+		for (int j = 0; j < theSectionOrder; j++){
 	(*ks)(i,j) = kSec(i,j);
+		}
+	}
   }
   
   int order = theSectionOrder + numMats;
@@ -678,7 +683,7 @@ SectionAggregator::recvSelf(int cTag, Channel &theChannel, FEM_ObjectBroker &the
 	delete fs;
 	delete theCode;
       }
-      e = new Vector(workArea, order);
+      e = new Vector(workArea, order - 1);
       s = new Vector(&workArea[maxOrder], order);
       ks = new Matrix(&workArea[2*maxOrder], order, order);
       fs = new Matrix(&workArea[maxOrder*(maxOrder+2)], order, order);
